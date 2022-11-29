@@ -19,7 +19,7 @@ class DKIBO(BayesianOptimization):
     name = 'DKIBO'
 
     def __init__(self, f, pbounds, random_state=None, verbose=2,
-                 bounds_transformer=None, ml_regressor=RandomForestRegressor, use_noise=False, early_stop_threshold=0.05):
+                 bounds_transformer=None, ml_regressor=RandomForestRegressor(n_estimators=20, max_depth=5), use_noise=False, early_stop_threshold=0.05):
         """"""
         self._random_state = ensure_rng(random_state)
 
@@ -209,9 +209,13 @@ class UtilityFunction(object):
         result = 0
         if self.kind == 'ucb':
             result = self._ucb(x, gp, self.kappa)
+            if self.ml_regressor is None:
+                return result
 
         if self.kind == 'ei':
             result = self._ei(x, gp, y_max, self.xi)
+            if self.ml_regressor is None:
+                return result
             if not self._regression_scale_flag and self.x_init is not None:
                 a = 0
                 b = 0
@@ -224,6 +228,8 @@ class UtilityFunction(object):
 
         if self.kind == 'poi':
             result = self._poi(x, gp, y_max, self.xi)
+            if self.ml_regressor is None:
+                return result
             if not self._regression_scale_flag and self.x_init is not None:
                 a = 0
                 b = 0
@@ -240,10 +246,7 @@ class UtilityFunction(object):
         if self.kind == 'ucb_without_mean':
             result = self._ucb_without_mean(x, gp, self.kappa)
 
-        if self.ml_regressor is not None:
-            return result + self.ml_regressor.predict(x) * self._regression_decay_rate * self._regression_scale_rate
-        else:
-            return result
+        return result + self.ml_regressor.predict(x) * self._regression_decay_rate * self._regression_scale_rate
 
     @staticmethod
     def _ucb(x, gp, kappa):
