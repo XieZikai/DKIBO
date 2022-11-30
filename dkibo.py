@@ -220,8 +220,9 @@ class UtilityFunction(object):
                 a = 0
                 b = 0
                 for i in self.x_init:
-                    a += self._ei(i, gp, y_max, self.xi)
-                    b += self.ml_regressor.predict(i)
+                    i = i.reshape(1, -1)
+                    a += self._ei(i, gp, y_max, self.xi)[0]
+                    b += self.ml_regressor.predict(i)[0]
 
                 self._regression_scale_flag = True
                 self._regression_scale_rate = a/b
@@ -234,8 +235,9 @@ class UtilityFunction(object):
                 a = 0
                 b = 0
                 for i in self.x_init:
-                    a += self._poi(i, gp, y_max, self.xi)
-                    b += self.ml_regressor.predict(i)
+                    i = i.reshape(1, -1)
+                    a += self._poi(i, gp, y_max, self.xi)[0]
+                    b += self.ml_regressor.predict(i)[0]
 
                 self._regression_scale_flag = True
                 self._regression_scale_rate = a / b
