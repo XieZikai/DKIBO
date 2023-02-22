@@ -34,7 +34,7 @@ folder_name = '{}_{}_{}_{}_{}'.format(str(datetime.tm_year), str(datetime.tm_mon
 path = os.path.join(path, folder_name)
 
 
-def check_model_test_problem(problem, BO, max_iter=1, n_iter=5, save_result=True, path=path, acq='ucb',
+def check_model_test_problem(problem, BO, max_iter=50, n_iter=100, save_result=True, path=path, acq='ei',
                              kappa=2.576, ml_regressor=None, use_noise=True):
     global regressor
     result_linear_custom = pd.DataFrame([])
@@ -73,22 +73,22 @@ def run_all(regression_list=None, kappa=2.576, use_noise=True):
         regression_list = [RandomForestRegressor, vanilla]
     for regression in regression_list:
         multiprocess_test_synthetic_functions(model=regression, use_noise=use_noise, kappa=kappa)
-    check_model_test_problem(photocatalysis_problem, DKIBO, use_noise=use_noise)
-    check_model_test_problem(photocatalysis_problem, DKIBO, ml_regressor=LinearRegression, use_noise=use_noise)
+    check_model_test_problem(photocatalysis_problem, DKIBO, use_noise=use_noise, acq='ei')
+    check_model_test_problem(photocatalysis_problem, DKIBO, ml_regressor=LinearRegression, use_noise=use_noise, acq='ei')
 
 
 def run_standardBO(use_noise=True, kappa=2.576):
     multiprocess_test_synthetic_functions(model=None, use_noise=use_noise, kappa=kappa)
-    check_model_test_problem(photocatalysis_problem, DKIBO, acq='ucb', use_noise=use_noise)
+    check_model_test_problem(photocatalysis_problem, DKIBO, acq='ei', use_noise=use_noise)
 
 
 def experiment_process(BO, regression_model, problem, use_noise=True, kappa=2.576, dir_path=path):
     if problem == photocatalysis_problem:
-        check_model_test_problem(photocatalysis_problem, BO, acq='ucb', ml_regressor=regression_model, path=dir_path,
+        check_model_test_problem(photocatalysis_problem, BO, acq='ei', ml_regressor=regression_model, path=dir_path,
                                  use_noise=use_noise, kappa=kappa)
     else:
         test_function = TestProblem(problem, minimize=True)
-        check_model_test_problem(test_function, BO, acq='ucb', ml_regressor=regression_model, use_noise=use_noise,
+        check_model_test_problem(test_function, BO, acq='ei', ml_regressor=regression_model, use_noise=use_noise,
                                  kappa=kappa)
 
 
@@ -106,4 +106,5 @@ def multiprocess_test_synthetic_functions(optimizer=DKIBO, model=RandomForestReg
 
 
 if __name__ == '__main__':
-    run_all()
+    check_model_test_problem(photocatalysis_problem, DKIBO, ml_regressor=LinearRegression, use_noise=True, acq='ucb', kappa=1.288)
+    check_model_test_problem(photocatalysis_problem, DKIBO, ml_regressor=LinearRegression, use_noise=True, acq='ucb', kappa=5.152)

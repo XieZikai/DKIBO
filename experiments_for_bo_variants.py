@@ -122,10 +122,11 @@ def synthetic():
 
     configs = [config_default, config_1, config_2, config_3, config_4, config_5, config_6]
 
-    sub_test_problems = [Ackley, Eggholder, GoldsteinPrice]
+    sub_test_problems = [StyblinskiTang]
     for problem in sub_test_problems:
         problem_func = TestProblem(problem, minimize=True)
         for config in configs:
             run_synthetic_experiment_with_config(config, problem_func)
+
 
 synthetic()
