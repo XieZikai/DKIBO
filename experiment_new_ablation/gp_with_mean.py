@@ -1,13 +1,126 @@
 from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.utils.validation import _deprecate_positional_args, check_array
 from sklearn.utils import check_random_state
-from sklearn.gaussian_process.kernels import RBF, ConstantKernel as C
+from sklearn.gaussian_process.kernels import RBF, Matern, WhiteKernel, ConstantKernel as C
 from sklearn.base import BaseEstimator, RegressorMixin, clone
 import numpy as np
 from scipy.linalg import cholesky, cho_solve, solve_triangular
 import scipy.optimize
 from operator import itemgetter
 import warnings
+
+from bayes_opt.util import ensure_rng, UtilityFunction, acq_max
+from bayes_opt.bayesian_optimization import BayesianOptimization, Queue, TargetSpace
+from bayes_opt.event import Events, DEFAULT_EVENTS
+
+
+class BOWithMean(BayesianOptimization):
+    def __init__(self, f, pbounds, ml_regressor, random_state=None, verbose=2,
+                 bounds_transformer=None, use_noise=False, early_stop_threshold=0.05):
+        """"""
+        self._random_state = ensure_rng(random_state)
+
+        # Data structure containing the function to be optimized, the bounds of
+        # its domain, and a record of the evaluations we have done so far
+        self._space = TargetSpace(f, pbounds, random_state)
+
+        # queue
+        self._queue = Queue()
+        kernel_length_scale = np.array([1.0 for _ in range(len(pbounds))])
+        if use_noise:
+            kernel = Matern(nu=2.5, length_scale=kernel_length_scale) + WhiteKernel()
+        else:
+            kernel = Matern(nu=2.5, length_scale=kernel_length_scale)
+
+        # Internal GP regressor
+        self.ml_regressor = ml_regressor
+        self._gp = GaussianProcessRegressorWithMean(
+            mean_function=self.ml_regressor,
+            kernel=kernel,
+            alpha=1e-6,
+            normalize_y=False,
+            n_restarts_optimizer=5,
+            random_state=self._random_state,
+        )
+        self._original_gp = GaussianProcessRegressor(
+            kernel=kernel,
+            alpha=1e-6,
+            normalize_y=True,
+            n_restarts_optimizer=5,
+            random_state=self._random_state,
+        )
+
+        self._verbose = verbose
+        self._bounds_transformer = bounds_transformer
+        if self._bounds_transformer:
+            self._bounds_transformer.initialize(self._space)
+        self.result_dataframe = []
+        # recording
+        self.result_dataframe = []
+        self.x_dataframe = []
+        self.early_stop_threshold = early_stop_threshold
+        self.proportion_dataframe = []
+
+        self.pbounds = pbounds
+        super(BayesianOptimization, self).__init__(events=DEFAULT_EVENTS)
+
+    def maximize(self,
+                 init_points=5,
+                 n_iter=25,
+                 acq='ucb',
+                 kappa=2.576,
+                 kappa_decay=1,
+                 kappa_decay_delay=0,
+                 xi=0.0,
+                 **gp_params):
+        """Mazimize your function"""
+        self._prime_subscriptions()
+        self.dispatch(Events.OPTIMIZATION_START)
+        self._prime_queue(init_points)
+        self.set_gp_params(**gp_params)
+
+        util = UtilityFunction(kind=acq,
+                               kappa=kappa,
+                               xi=xi,
+                               kappa_decay=kappa_decay,
+                               kappa_decay_delay=kappa_decay_delay)
+        iteration = 0
+        x_probe_previous = None
+        early_stop = False
+
+        while not self._queue.empty or iteration < n_iter:
+            try:
+                x_probe = next(self._queue)
+            except StopIteration:
+                util.update_params()
+                x_probe = self.suggest(util)
+                iteration += 1
+
+            self.probe(x_probe, lazy=False)
+
+            result = self._space.probe(x_probe)
+            self.result_dataframe.append(result)
+
+            x_probe = np.array(list(x_probe.values())) if isinstance(x_probe, dict) else x_probe
+            self.x_dataframe.append(x_probe)
+
+            # early stopping
+            if x_probe_previous is not None and not early_stop and self.ml_regressor is not None \
+                    and self.early_stop_threshold is not None:
+                dis1 = np.linalg.norm(x_probe - np.mean(self.x_dataframe, axis=0))
+                dis2 = np.linalg.norm(x_probe - x_probe_previous)
+                early_stop = dis1 * self.early_stop_threshold > dis2
+                if early_stop:
+                    self._gp = self._original_gp
+                    print('Early stopping activated!')
+
+            x_probe_previous = x_probe
+
+            if self._bounds_transformer:
+                self.set_bounds(
+                    self._bounds_transformer.transform(self._space))
+
+        self.dispatch(Events.OPTIMIZATION_END)
 
 
 class GaussianProcessRegressorWithMean(GaussianProcessRegressor):
@@ -173,6 +286,7 @@ class GaussianProcessRegressorWithMean(GaussianProcessRegressor):
 
             # undo normalisation
             y_mean = self._y_train_std * y_mean + self._y_train_mean
+            y_mean = y_mean + y_pred
 
             if return_cov:
                 v = cho_solve((self.L_, True), K_trans.T)  # Line 5

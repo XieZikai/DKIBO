@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 
-data_dir = r'C:\Users\darkn\PycharmProjects\ChemicalOptimization\data'
+data_dir = r'C:\Users\darkn\PycharmProjects\DKIBO\problems\data'
 
 
 def combine_data(data_dir=os.path.join(data_dir, 'further data'), start=0, end=49):

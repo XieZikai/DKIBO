@@ -13,7 +13,7 @@ def generate_baseline_model(train_data=kuka_data, label_column='target'):
     return predictor
 
 
-def get_baseline_model(model_dir=r'C:\Users\darkn\PycharmProjects\ChemicalOptimization\data\AutogluonModels\ag-20211124_140019'):
+def get_baseline_model(model_dir=r'C:\Users\darkn\PycharmProjects\DKIBO\problems\data\AutogluonModels\ag-20211124_140019'):
     return TabularPredictor.load(model_dir)
 
 
