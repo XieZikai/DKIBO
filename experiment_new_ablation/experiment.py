@@ -34,7 +34,7 @@ PATH = r'.'
 datetime = time.localtime()
 folder_name = '{}_{}_{}_{}_{}'.format(str(datetime.tm_year), str(datetime.tm_mon), str(datetime.tm_mday),
                                       str(datetime.tm_hour), str(datetime.tm_min))
-PATH = os.path.join(PATH, folder_name)
+PATH = os.path.join(PATH, folder_name) + '_no_early_stop'
 
 
 def check_model_test_problem(problem, BO, max_iter=50, n_iter=100, save_result=True, path=PATH, acq='ei',
@@ -55,7 +55,7 @@ def check_model_test_problem(problem, BO, max_iter=50, n_iter=100, save_result=T
         else:
             regressor = None
             name = 'standardBO'
-        optimizer = BO(f=problem, pbounds=problem.bound, ml_regressor=regressor, use_noise=use_noise, random_state=iter)
+        optimizer = BO(f=problem, pbounds=problem.bound, ml_regressor=regressor, use_noise=use_noise, random_state=iter, early_stop_threshold=None)
 
         optimizer.maximize(n_iter=n_iter, acq=acq, kappa=kappa, init_points=5)
         result_linear_custom = result_linear_custom.append(pd.Series(optimizer.result_dataframe, dtype=np.float64),
