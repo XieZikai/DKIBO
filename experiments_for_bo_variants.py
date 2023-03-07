@@ -56,7 +56,7 @@ def check_model_test_problem(problem, BO, max_iter=50, save_result=True, path=pa
         else:
             regressor = None
             name = 'standardBO'
-        optimizer = BO(f=problem, pbounds=problem.bound, ml_regressor=regressor)
+        optimizer = BO(f=problem, pbounds=problem.bound, ml_regressor=regressor, random_state=iter)
 
         optimizer.maximize(n_iter=100, acq=acq, kappa=kappa, init_points=5)
         result_linear_custom = result_linear_custom.append(pd.Series(optimizer.result_dataframe, dtype=np.float64),
@@ -73,15 +73,15 @@ def photocatalysis():
                                  acq=config['acq'], ml_regressor=config['regression'])
 
     config_default = {'max_iter': 50, 'kappa': 2.576, 'acq': 'ucb', 'regression': None}
-    config_1 = {'max_iter': 50, 'kappa': 5.152, 'acq': 'ucb', 'regression': RandomForestRegressor}
+    config_1 = {'max_iter': 50, 'kappa': 5.152, 'acq': 'ucb', 'regression': LinearRegression}
     config_2 = {'max_iter': 50, 'kappa': 5.152, 'acq': 'ucb', 'regression': None}
-    config_3 = {'max_iter': 50, 'kappa': 1.288, 'acq': 'ucb', 'regression': RandomForestRegressor}
+    config_3 = {'max_iter': 50, 'kappa': 1.288, 'acq': 'ucb', 'regression': LinearRegression}
     config_4 = {'max_iter': 50, 'kappa': 1.288, 'acq': 'ucb', 'regression': None}
-    config_5 = {'max_iter': 50, 'kappa': 2.576, 'acq': 'ucb_without_mean', 'regression': RandomForestRegressor}
-    config_6 = {'max_iter': 50, 'kappa': 2.576, 'acq': 'regression_only', 'regression': RandomForestRegressor}
-    config_7 = {'max_iter': 50, 'kappa': 2.576, 'acq': 'ucb_without_mean', 'regression': LinearRegression}
+    config_5 = {'max_iter': 50, 'kappa': 2.576, 'acq': 'ucb_without_mean', 'regression': LinearRegression}
+    config_6 = {'max_iter': 50, 'kappa': 2.576, 'acq': 'regression_only', 'regression': LinearRegression}
+    # config_7 = {'max_iter': 50, 'kappa': 2.576, 'acq': 'ucb_without_mean', 'regression': LinearRegression}
 
-    configs = [config_1, config_2, config_3, config_4, config_5, config_6, config_7]
+    configs = [config_1, config_2, config_3, config_4, config_5, config_6]
     for config in configs:
         run_photocatalysis_experiment_with_config(config)
 
@@ -129,4 +129,4 @@ def synthetic():
             run_synthetic_experiment_with_config(config, problem_func)
 
 
-synthetic()
+photocatalysis()

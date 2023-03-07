@@ -60,7 +60,8 @@ def check_algorithm_test_problem(problem, optimizers, max_iter=50, path=path):
         results.to_csv(os.path.join(path, '{}_result_test_{}.csv'.format(optimizer.__name__, problem.name)))
 
 
-for problem in test_problems:
-    test_function = TestProblem(problem, minimize=True)
-    check_algorithm_test_problem(test_function, optimizers)
-check_algorithm_test_problem(photocatalysis_problem, optimizers)
+if __name__ == '__main__':
+    for problem in test_problems:
+        test_function = TestProblem(problem, minimize=True)
+        check_algorithm_test_problem(test_function, optimizers)
+    check_algorithm_test_problem(photocatalysis_problem, optimizers)

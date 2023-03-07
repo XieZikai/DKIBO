@@ -53,7 +53,9 @@ class BaseOptimizer:
             print("Initial Guesses: ")
             for i in range(init_points):
                 x_guess = self.random_sampling()
-                y = obj(self.dict2array(x_guess))[0]
+                y = obj(self.dict2array(x_guess))
+                if isinstance(y, list):
+                    y = y[0]
                 self.observe([self.dict_or_array(x_guess)], [-y])
                 self.results.append(y)
                 print("Guess {}, obj value {}".format(i, y))
@@ -64,7 +66,9 @@ class BaseOptimizer:
         iteration = 0
         while iteration < n_iter:
             x_guess = self.suggest(n_suggestions=1)[0]
-            y = obj(self.dict2array(x_guess))[0]
+            y = obj(self.dict2array(x_guess))
+            if isinstance(y, list):
+                y = y[0]
             self.observe([self.dict_or_array(x_guess)], [-y])
             self.results.append(y)
             if y > best_value:

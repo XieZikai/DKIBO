@@ -11,7 +11,7 @@ class ObjectiveWrapper:
     def __init__(self, black_box_function,
                  input_length: int = None,
                  input_columns: dict = None,
-                 bound=None):
+                 input_list=False):
 
         self.black_box_function = black_box_function
         assert not (input_length is None and input_columns is None), 'Must provide input length or input column names!'
@@ -23,6 +23,7 @@ class ObjectiveWrapper:
                 input_columns.append('x'+str(i))
 
         self.input_columns = input_columns
+        self.input_list = input_list
 
     def __call__(self, *args, **kwargs):
 
@@ -38,7 +39,10 @@ class ObjectiveWrapper:
 
         input_data = list(kwargs.values())
         if 'predict' not in dir(self.black_box_function):
-            return self.black_box_function(*input_data)
+            if not self.input_list:
+                return self.black_box_function(*input_data)
+            else:
+                return self.black_box_function(input_data)
         else:
             # input_data = [[i] for i in input_data]
             # print(input_data)
