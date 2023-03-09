@@ -75,6 +75,9 @@ def check_model_test_problem(problem, BO, max_iter=50, n_iter=100, save_result=T
         result_linear_custom = result_linear_custom.append(pd.Series(optimizer.result_dataframe, dtype=np.float64),
                                                            ignore_index=True)
         iter += 1
+        optimizer.proportion_dataframe.to_csv(
+            os.path.join(path, '{}_early_stop_proportion_trial_{}_{}.csv'.format(name, problem.name, iter)))
+
     if save_result:
         result_linear_custom = pd.DataFrame(np.array(result_linear_custom))
         result_linear_custom.to_csv(
@@ -97,19 +100,19 @@ def ablation(problem, configs, model=DKIBO):
     for config in configs:
         run_synthetic_experiment_with_config(config)
 
-# check_model_test_problem(swimmer_problem, DKIBO, ml_regressor=RandomForestRegressor, use_noise=True, acq='ucb')
+check_model_test_problem(swimmer_problem, DKIBO, ml_regressor=RandomForestRegressor, use_noise=True, acq='ucb')
 # check_model_test_problem(swimmer_problem, DKIBO, use_noise=True, acq='ucb')
 # check_algorithm_test_problem(swimmer_problem, optimizers, path=PATH)
 # check_model_test_problem(swimmer_problem, DKIBO, ml_regressor=LinearRegression, use_noise=True, acq='ucb')
 
 
-config_1 = {'max_iter': 50, 'kappa': 5.152, 'acq': 'ucb', 'regression': RandomForestRegressor}
-config_2 = {'max_iter': 50, 'kappa': 5.152, 'acq': 'ucb', 'regression': None}
-config_3 = {'max_iter': 50, 'kappa': 1.288, 'acq': 'ucb', 'regression': RandomForestRegressor}
-config_4 = {'max_iter': 50, 'kappa': 1.288, 'acq': 'ucb', 'regression': None}
-config_5 = {'max_iter': 50, 'kappa': 2.576, 'acq': 'ucb_without_mean', 'regression': RandomForestRegressor}
-config_6 = {'max_iter': 50, 'kappa': 2.576, 'acq': 'regression_only', 'regression': RandomForestRegressor}
+# config_1 = {'max_iter': 50, 'kappa': 5.152, 'acq': 'ucb', 'regression': RandomForestRegressor}
+# config_2 = {'max_iter': 50, 'kappa': 5.152, 'acq': 'ucb', 'regression': None}
+# config_3 = {'max_iter': 50, 'kappa': 1.288, 'acq': 'ucb', 'regression': RandomForestRegressor}
+# config_4 = {'max_iter': 50, 'kappa': 1.288, 'acq': 'ucb', 'regression': None}
+# config_5 = {'max_iter': 50, 'kappa': 2.576, 'acq': 'ucb_without_mean', 'regression': RandomForestRegressor}
+# config_6 = {'max_iter': 50, 'kappa': 2.576, 'acq': 'regression_only', 'regression': RandomForestRegressor}
 
-configs = [config_1, config_2, config_3, config_4, config_5, config_6]
+# configs = [config_1, config_2, config_3, config_4, config_5, config_6]
 
-ablation(swimmer_problem, configs)
+# ablation(swimmer_problem, configs)
