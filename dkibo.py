@@ -91,6 +91,7 @@ class DKIBO(BayesianOptimization):
                  kappa_decay=1,
                  kappa_decay_delay=0,
                  xi=0.0,
+                 manual_early_stop=None,
                  **gp_params):
         """Mazimize your function"""
         self._prime_subscriptions()
@@ -118,6 +119,8 @@ class DKIBO(BayesianOptimization):
                 util.update_params(early_stop=early_stop)
                 x_probe = self.suggest(util)
                 iteration += 1
+                if manual_early_stop is not None and iteration >= manual_early_stop:
+                    early_stop = True
 
             self.probe(x_probe, lazy=False)
 

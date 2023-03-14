@@ -2,8 +2,8 @@ import numpy as np
 
 
 class TestProblem:
-    def __init__(self, problem, minimize=False):
-        self.problem = problem()
+    def __init__(self, problem, minimize=False, **kargs):
+        self.problem = problem(**kargs)
         self.name = self.problem.__class__.__name__
         self.dim = self.problem.dim
         self.input_columns = []

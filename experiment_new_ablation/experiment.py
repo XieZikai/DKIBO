@@ -42,7 +42,6 @@ swimmer_problem = ObjectiveWrapper(swimmer_problem, input_length=len(swimmer_pro
 swimmer_problem.bound = bound
 swimmer_problem.name = 'swimmer_experiment'
 
-
 PATH = r'.'
 
 datetime = time.localtime()
@@ -52,7 +51,7 @@ PATH = os.path.join(PATH, folder_name)
 
 
 def check_model_test_problem(problem, BO, max_iter=50, n_iter=100, save_result=True, path=PATH, acq='ei',
-                             kappa=2.576, ml_regressor=None, use_noise=True):
+                             kappa=2.576, ml_regressor=None, use_noise=True, manual_early_stop=None):
     global regressor
     result_linear_custom = pd.DataFrame([])
     iter = 0
@@ -71,7 +70,7 @@ def check_model_test_problem(problem, BO, max_iter=50, n_iter=100, save_result=T
             name = 'standardBO'
         optimizer = BO(f=problem, pbounds=problem.bound, ml_regressor=regressor, use_noise=use_noise, random_state=iter)
 
-        optimizer.maximize(n_iter=n_iter, acq=acq, kappa=kappa, init_points=5)
+        optimizer.maximize(n_iter=n_iter, acq=acq, kappa=kappa, init_points=5, manual_early_stop=manual_early_stop)
         result_linear_custom = result_linear_custom.append(pd.Series(optimizer.result_dataframe, dtype=np.float64),
                                                            ignore_index=True)
         iter += 1
@@ -90,6 +89,8 @@ optimizers = [
     OpentunerOptimizer,
     HyperoptOptimizer
 ]
+
+
 # check_model_test_problem(photocatalysis_problem, BOWithMean, ml_regressor=LinearRegression, use_noise=True, acq='ucb')
 
 
@@ -97,22 +98,41 @@ def ablation(problem, configs, model=DKIBO):
     def run_synthetic_experiment_with_config(config):
         check_model_test_problem(problem, model, max_iter=config['max_iter'], kappa=config['kappa'],
                                  acq=config['acq'], ml_regressor=config['regression'])
+
     for config in configs:
         run_synthetic_experiment_with_config(config)
 
-check_model_test_problem(swimmer_problem, DKIBO, ml_regressor=RandomForestRegressor, use_noise=True, acq='ucb')
-# check_model_test_problem(swimmer_problem, DKIBO, use_noise=True, acq='ucb')
-# check_algorithm_test_problem(swimmer_problem, optimizers, path=PATH)
-# check_model_test_problem(swimmer_problem, DKIBO, ml_regressor=LinearRegression, use_noise=True, acq='ucb')
+
+def check_swimmer_problem_performance():
+    check_model_test_problem(swimmer_problem, DKIBO, ml_regressor=RandomForestRegressor, use_noise=True, acq='ucb')
+    check_model_test_problem(swimmer_problem, DKIBO, use_noise=True, acq='ucb')
+    check_algorithm_test_problem(swimmer_problem, optimizers, path=PATH)
+    check_model_test_problem(swimmer_problem, DKIBO, ml_regressor=LinearRegression, use_noise=True, acq='ucb')
 
 
-# config_1 = {'max_iter': 50, 'kappa': 5.152, 'acq': 'ucb', 'regression': RandomForestRegressor}
-# config_2 = {'max_iter': 50, 'kappa': 5.152, 'acq': 'ucb', 'regression': None}
-# config_3 = {'max_iter': 50, 'kappa': 1.288, 'acq': 'ucb', 'regression': RandomForestRegressor}
-# config_4 = {'max_iter': 50, 'kappa': 1.288, 'acq': 'ucb', 'regression': None}
-# config_5 = {'max_iter': 50, 'kappa': 2.576, 'acq': 'ucb_without_mean', 'regression': RandomForestRegressor}
-# config_6 = {'max_iter': 50, 'kappa': 2.576, 'acq': 'regression_only', 'regression': RandomForestRegressor}
+def check_swimmer_problem_ablation():
+    config_1 = {'max_iter': 50, 'kappa': 5.152, 'acq': 'ucb', 'regression': RandomForestRegressor}
+    config_2 = {'max_iter': 50, 'kappa': 5.152, 'acq': 'ucb', 'regression': None}
+    config_3 = {'max_iter': 50, 'kappa': 1.288, 'acq': 'ucb', 'regression': RandomForestRegressor}
+    config_4 = {'max_iter': 50, 'kappa': 1.288, 'acq': 'ucb', 'regression': None}
+    config_5 = {'max_iter': 50, 'kappa': 2.576, 'acq': 'ucb_without_mean', 'regression': RandomForestRegressor}
+    config_6 = {'max_iter': 50, 'kappa': 2.576, 'acq': 'regression_only', 'regression': RandomForestRegressor}
+    configs = [config_1, config_2, config_3, config_4, config_5, config_6]
+    ablation(swimmer_problem, configs)
 
-# configs = [config_1, config_2, config_3, config_4, config_5, config_6]
 
-# ablation(swimmer_problem, configs)
+def check_10d_problem():
+    problem = TestProblem(Michalewicz, minimize=True, d=10)
+    problem.name = 'Michalewicz10'
+    check_model_test_problem(problem, DKIBO, ml_regressor=None, use_noise=True, acq='ucb')
+
+
+def check_manually_early_stop():
+    problems = [TestProblem(problem, minimize=True) for problem in [Hartmann6, Shekel]]
+    problems.append(swimmer_problem)
+    for problem in problems:
+        check_model_test_problem(problem, DKIBO, ml_regressor=RandomForestRegressor, use_noise=True, acq='ucb',
+                                 manual_early_stop=50)
+
+
+check_manually_early_stop()

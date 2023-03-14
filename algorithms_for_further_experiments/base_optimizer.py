@@ -3,7 +3,9 @@ import pandas as pd
 
 
 class BaseOptimizer:
-
+    """
+    Base optimizer to wrap 4 baseline optimizers for experiment.
+    """
     def __init__(self, space, use_init_points=True, observe_dict=False):
         self.space = space
         self.use_init_points = use_init_points
@@ -54,7 +56,7 @@ class BaseOptimizer:
             for i in range(init_points):
                 x_guess = self.random_sampling()
                 y = obj(self.dict2array(x_guess))
-                if isinstance(y, list):
+                if isinstance(y, list) or isinstance(y, np.ndarray):
                     y = y[0]
                 self.observe([self.dict_or_array(x_guess)], [-y])
                 self.results.append(y)
@@ -67,7 +69,7 @@ class BaseOptimizer:
         while iteration < n_iter:
             x_guess = self.suggest(n_suggestions=1)[0]
             y = obj(self.dict2array(x_guess))
-            if isinstance(y, list):
+            if isinstance(y, list) or isinstance(y, np.ndarray):
                 y = y[0]
             self.observe([self.dict_or_array(x_guess)], [-y])
             self.results.append(y)

@@ -56,12 +56,19 @@ def check_algorithm_test_problem(problem, optimizers, max_iter=50, path=path):
             opt.maximize(problem, n_iter=100)
             results.append(opt.results)
             iteration += 1
-        results = pd.DataFrame(np.array(results))
+        results = np.array(results)
+        if len(results.shape) == 3:
+            results = results.squeeze()
+        results = pd.DataFrame(results)
         results.to_csv(os.path.join(path, '{}_result_test_{}.csv'.format(optimizer.__name__, problem.name)))
 
 
 if __name__ == '__main__':
-    for problem in test_problems:
+    '''for problem in test_problems:
         test_function = TestProblem(problem, minimize=True)
         check_algorithm_test_problem(test_function, optimizers)
-    check_algorithm_test_problem(photocatalysis_problem, optimizers)
+    check_algorithm_test_problem(photocatalysis_problem, optimizers)'''
+
+    problem = TestProblem(Michalewicz, minimize=True, d=10)
+    problem.name = 'Michalewicz10'
+    check_algorithm_test_problem(problem, optimizers)
