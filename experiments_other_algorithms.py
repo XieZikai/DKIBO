@@ -69,6 +69,14 @@ if __name__ == '__main__':
         check_algorithm_test_problem(test_function, optimizers)
     check_algorithm_test_problem(photocatalysis_problem, optimizers)'''
 
-    problem = TestProblem(Michalewicz, minimize=True, d=10)
-    problem.name = 'Michalewicz10'
-    check_algorithm_test_problem(problem, optimizers)
+    '''problem = TestProblem(Colville, minimize=True)
+    problem.name = 'Colville'
+    check_algorithm_test_problem(problem, optimizers)'''
+
+    '''h3_problem = TestProblem(Hartmann3, minimize=True)
+    h3_problem.name = 'Hartmann3'
+    check_algorithm_test_problem(h3_problem, optimizers)'''
+
+    powell8_problem = TestProblem(Powell, minimize=True, d=8)
+    powell8_problem.name = 'Powell8'
+    check_algorithm_test_problem(powell8_problem, optimizers)

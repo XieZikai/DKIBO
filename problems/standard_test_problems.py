@@ -1053,7 +1053,7 @@ class Michalewicz:
              (unknown x* for both)
     """
 
-    def __init__(self, d=2, m=10):
+    def __init__(self, d=10, m=10):
         self.dim = d
         self.lb = np.full(self.dim, 0.)
         self.ub = np.full(self.dim, np.pi)
