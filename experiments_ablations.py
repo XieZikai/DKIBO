@@ -1,4 +1,4 @@
-from experiment_new_ablation.gp_with_mean import BOWithMean
+from experiment_results_for_bo_variants.gp_with_mean import BOWithMean
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.linear_model import LinearRegression
 
