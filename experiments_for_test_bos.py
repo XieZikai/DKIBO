@@ -26,6 +26,7 @@ photocatalysis_problem.bound = bound
 photocatalysis_problem.name = 'photocatalysis_experiment'
 
 path = r'/experiment_results'
+proportion_path = r'/experiment_result_early_drop_proportion'
 import time
 
 datetime = time.localtime()
@@ -60,7 +61,7 @@ def check_model_test_problem(problem, BO, max_iter=50, n_iter=100, save_result=T
         iter += 1
         if regressor is not None:
             optimizer.proportion_dataframe.to_csv(
-                os.path.join(path, '{}_early_stop_proportion_trial_{}_{}.csv'.format(name, problem.name, iter)))
+                os.path.join(proportion_path, '{}_early_stop_proportion_trial_{}_{}.csv'.format(name, problem.name, iter)))
     if save_result:
         result_linear_custom = pd.DataFrame(np.array(result_linear_custom))
         result_linear_custom.to_csv(

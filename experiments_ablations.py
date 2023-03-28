@@ -78,8 +78,6 @@ def check_model_test_problem(problem, BO, max_iter=50, n_iter=100, save_result=T
         result_linear_custom = result_linear_custom.append(pd.Series(optimizer.result_dataframe, dtype=np.float64),
                                                            ignore_index=True)
         iter += 1
-        optimizer.proportion_dataframe.to_csv(
-            os.path.join(path, '{}_early_stop_proportion_trial_{}_{}.csv'.format(name, problem.name, iter)))
 
     if save_result:
         result_linear_custom = pd.DataFrame(np.array(result_linear_custom))
