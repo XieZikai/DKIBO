@@ -4,7 +4,7 @@ from scipy.stats import norm
 from scipy.optimize import minimize
 
 
-def acq_max(ac, gp, y_max, bounds, random_state, n_warmup=10000, n_iter=10):
+def acq_max(ac, gp, y_max, bounds, random_state, n_warmup=10000, n_iter=10, constraints=None):
     """
     A function to find the maximum of the acquisition function
 
@@ -35,6 +35,9 @@ def acq_max(ac, gp, y_max, bounds, random_state, n_warmup=10000, n_iter=10):
     :param n_iter:
         number of times to run scipy.minimize
 
+    :param constraints:
+        dictionary-format constraints for constraint bayesian optimization
+
     Returns
     -------
     :return: x_max, The arg max of the acquisition function.
@@ -52,10 +55,19 @@ def acq_max(ac, gp, y_max, bounds, random_state, n_warmup=10000, n_iter=10):
                                    size=(n_iter, bounds.shape[0]))
     for x_try in x_seeds:
         # Find the minimum of minus the acquisition function
-        res = minimize(lambda x: -ac(x.reshape(1, -1), gp=gp, y_max=y_max),
-                       x_try.reshape(1, -1),
-                       bounds=bounds,
-                       method="L-BFGS-B")
+
+        if constraints is not None:
+            res = minimize(lambda x: -ac(x.reshape(1, -1), gp=gp, y_max=y_max),
+                           x_try,  # x_try.reshape(1, -1),
+                           bounds=bounds,
+                           method="trust-constr",
+                           constraints=constraints)
+
+        else:
+            res = minimize(lambda x: -ac(x.reshape(1, -1), gp=gp, y_max=y_max),
+                           x_try.reshape(1, -1),
+                           bounds=bounds,
+                           method="L-BFGS-B")
 
         # See if success
         if not res.success:
