@@ -6,15 +6,15 @@ import os
 import time
 
 test_problems = [
+    Colville,
+    Michalewicz,
     Ackley,
     Branin,
     Eggholder,
     GoldsteinPrice,
-    SixHumpCamel,
-    Shekel,
     Hartmann6,
-    Michalewicz,
     Rosenbrock,
+    SixHumpCamel,
     StyblinskiTang
 ]
 
@@ -64,19 +64,7 @@ def check_algorithm_test_problem(problem, optimizers, max_iter=50, path=path):
 
 
 if __name__ == '__main__':
-    '''for problem in test_problems:
+    for problem in test_problems:
         test_function = TestProblem(problem, minimize=True)
         check_algorithm_test_problem(test_function, optimizers)
-    check_algorithm_test_problem(photocatalysis_problem, optimizers)'''
-
-    '''problem = TestProblem(Colville, minimize=True)
-    problem.name = 'Colville'
-    check_algorithm_test_problem(problem, optimizers)'''
-
-    '''h3_problem = TestProblem(Hartmann3, minimize=True)
-    h3_problem.name = 'Hartmann3'
-    check_algorithm_test_problem(h3_problem, optimizers)'''
-
-    powell8_problem = TestProblem(Powell, minimize=True, d=8)
-    powell8_problem.name = 'Powell8'
-    check_algorithm_test_problem(powell8_problem, optimizers)
+    check_algorithm_test_problem(photocatalysis_problem, optimizers)

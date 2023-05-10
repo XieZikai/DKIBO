@@ -12,9 +12,9 @@ test_problems = [
     Branin,
     Eggholder,
     GoldsteinPrice,
-    SixHumpCamel,
     Hartmann6,
     Rosenbrock,
+    SixHumpCamel,
     StyblinskiTang
 ]
 
