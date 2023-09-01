@@ -3,20 +3,6 @@ from sklearn.linear_model import LinearRegression
 
 from dkibo import DKIBO
 from problems.photocatalysis_problems import *
-from problems.standard_test_problems import *
-
-test_problems = [
-    Colville,
-    Michalewicz,
-    Ackley,
-    Branin,
-    Eggholder,
-    GoldsteinPrice,
-    Hartmann6,
-    Rosenbrock,
-    SixHumpCamel,
-    StyblinskiTang
-]
 
 photocatalysis_problem, input_columns = get_kuka_problem()
 bound = {}
@@ -25,8 +11,10 @@ for i in input_columns:
 photocatalysis_problem.bound = bound
 photocatalysis_problem.name = 'photocatalysis_experiment'
 
+
 path = r'/experiment_results'
 proportion_path = r'/experiment_result_early_drop_proportion'
+os.makedirs(proportion_path)
 import time
 
 datetime = time.localtime()
@@ -68,43 +56,4 @@ def check_model_test_problem(problem, BO, max_iter=50, n_iter=100, save_result=T
             os.path.join(path, '{}_result_test_{}.csv'.format(name, problem.name)))
 
 
-def run_all(regression_list=None, kappa=2.576, use_noise=True):
-    if regression_list is None:
-        vanilla = None
-        regression_list = [RandomForestRegressor, vanilla]
-    for regression in regression_list:
-        multiprocess_test_synthetic_functions(model=regression, use_noise=use_noise, kappa=kappa)
-    check_model_test_problem(photocatalysis_problem, DKIBO, use_noise=use_noise, acq='ucb')
-    check_model_test_problem(photocatalysis_problem, DKIBO, ml_regressor=LinearRegression, use_noise=use_noise, acq='ucb')
-
-
-def run_standardBO(use_noise=True, kappa=2.576):
-    multiprocess_test_synthetic_functions(model=None, use_noise=use_noise, kappa=kappa)
-    check_model_test_problem(photocatalysis_problem, DKIBO, acq='ucb', use_noise=use_noise)
-
-
-def experiment_process(BO, regression_model, problem, use_noise=True, kappa=2.576, dir_path=path):
-    if problem == photocatalysis_problem:
-        check_model_test_problem(photocatalysis_problem, BO, acq='ucb', ml_regressor=regression_model, path=dir_path,
-                                 use_noise=use_noise, kappa=kappa)
-    else:
-        test_function = TestProblem(problem, minimize=True)
-        check_model_test_problem(test_function, BO, acq='ucb', ml_regressor=regression_model, use_noise=use_noise,
-                                 kappa=kappa)
-
-
-def multiprocess_test_synthetic_functions(optimizer=DKIBO, model=RandomForestRegressor, use_noise=False, **kwargs):
-    from multiprocessing import Process
-
-    process_list = []
-    for problem in test_problems:
-        p = Process(target=experiment_process,
-                    args=(optimizer, model, problem, use_noise, kwargs['kappa'], path))
-        p.start()
-        process_list.append(p)
-    for p in process_list:
-        p.join()
-
-
-if __name__ == '__main__':
-    check_model_test_problem(photocatalysis_problem, DKIBO, ml_regressor=LinearRegression, use_noise=True, acq='ucb')
+check_model_test_problem(photocatalysis_problem, DKIBO, ml_regressor=RandomForestRegressor, use_noise=True, acq='ucb')

@@ -17,16 +17,17 @@ def round_result(x, constraint=None):
         return array_to_dict()
 
     if constraint['type'] == 'eq':
-        if constraint['fun'](dict_array_rounded) > 0:
-            i = np.argmax(dict_array_rounded - dict_array)
-            dict_array_rounded[i] -= 1
-        if constraint['fun'](dict_array_rounded) < 0:
-            i = np.argmin(dict_array_rounded - dict_array)
-            dict_array_rounded[i] += 1
+        while constraint['fun'](dict_array_rounded) != 0:
+            if constraint['fun'](dict_array_rounded) > 0:
+                i = np.argmax(dict_array_rounded - dict_array)
+                dict_array_rounded[i] -= 1
+            if constraint['fun'](dict_array_rounded) < 0:
+                i = np.argmin(dict_array_rounded - dict_array)
+                dict_array_rounded[i] += 1
         return array_to_dict()
 
     if constraint['type'] == 'ineq':
-        if constraint['fun'](dict_array_rounded) > 0:
+        while constraint['fun'](dict_array_rounded) > 0:
             i = np.argmax(dict_array_rounded - dict_array)
             dict_array_rounded[i] -= 1
         return array_to_dict()

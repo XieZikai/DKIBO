@@ -59,7 +59,7 @@ class DKIBO(BayesianOptimization):
 
         super(BayesianOptimization, self).__init__(events=DEFAULT_EVENTS)
 
-    def suggest(self, utility_function, constraints=None):
+    def suggest(self, utility_function, constraints=None, n_iter=15):
         """Most promissing point to probe next"""
         if len(self._space) == 0:
             return self._space.array_to_params(self._space.random_sample())
@@ -79,7 +79,8 @@ class DKIBO(BayesianOptimization):
             y_max=self._space.target.max(),
             bounds=self._space.bounds,
             random_state=self._random_state,
-            constraints=constraints
+            constraints=constraints,
+            n_iter=n_iter
         )
 
         return self._space.array_to_params(suggestion)
