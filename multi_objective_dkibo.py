@@ -1,8 +1,9 @@
-from dkibo import DKIBO
+from dkibo import DKIBO, UtilityFunction
 from deap import base
 from bayes_opt.bayesian_optimization import BayesianOptimization, Queue, TargetSpace
 from bayes_opt.util import ensure_rng, acq_max
 from bayes_opt.event import DEFAULT_EVENTS
+from utils import NSGAII
 
 from sklearn.gaussian_process import GaussianProcessRegressor
 import numpy as np
@@ -53,6 +54,7 @@ class MultiObjectiveDKIBO(DKIBO):
                  use_noise=False,
                  early_stop_threshold=0.05):
 
+        assert objective_num == len(ml_regressor)
         self._random_state = ensure_rng(random_state)
         self._space = MultiObjectiveTargetSpace(None, pbounds, random_state)
         self.obj_num = objective_num
@@ -87,7 +89,7 @@ class MultiObjectiveDKIBO(DKIBO):
 
         super(BayesianOptimization, self).__init__(events=DEFAULT_EVENTS)
 
-    def suggest(self, utility_functions, constraints=None, n_iter=15):
+    def suggest(self, kind, constraints=None, n_iter=15):
         """Most promissing point to probe next"""
 
         if len(self._space) == 0:
@@ -101,19 +103,58 @@ class MultiObjectiveDKIBO(DKIBO):
                     self.ml_regressor[i].fit(self._space.params, self._space.target)
 
         suggestion = self.acq_max(
-            ac=utility_functions,
-            gp=self._gp_list,
-            y_max=self._space.target.max(),
-            bounds=self._space.bounds,
-            random_state=self._random_state,
+            kind=kind,
             constraints=constraints,
             n_iter=n_iter
         )
 
         return self._space.array_to_params(suggestion)
 
-    def acq_max(ac, gp, y_max, bounds, random_state, n_warmup=10000, n_iter=10, constraints=None):
-        x_tries = random_state.uniform(bounds[:, 0], bounds[:, 1],
-                                       size=(n_warmup, bounds.shape[0]))
-        # acquisition functions
+    def multiple_acquisition(self, kind):
+        F = [None] * len(self.ml_regressor)
+        for i in range(self.obj_num):
 
+
+
+    def acq_max(self, kind,
+                kappa=2.576,
+                kappa_decay=1,
+                kappa_decay_delay=0,
+                xi=0.0,
+                manual_early_stop=None,
+                n_pts=100,
+                n_warmup=10000, n_iter=10, constraints=None):
+
+        bounds = self._space.bounds
+        y_max = self._space.target.max()
+
+        # acquisition functions
+        utilities = []
+        for i in range(self.obj_num):
+            utilities.append(
+                UtilityFunction(
+                    kind=kind,
+                    kappa=kappa,
+                    kappa_decay=kappa_decay,
+                    kappa_decay_delay=kappa_decay_delay,
+                    xi=xi,
+                    x_init=self.x_init,  # todo: adding self.x_init
+                    max_iter=self.max_iter,  # todo: adding self.max_iter
+                    ml_regressor=self.ml_regressor[i]
+                )
+            )
+
+        def acquisitions(x):
+            F = [None] * self.obj_num
+            for i in range(self.obj_num):
+                F[i] = utilities[i].utility(x, self._gp_list[i], y_max[i])
+            return F
+
+        acquisitions = acquisitions(utilities)
+
+        pop, logbook, front = NSGAII(self.obj_num,
+                                     acquisitions,
+                                     self.pbounds,
+                                     MU=n_pts)
+
+        return suggestions
