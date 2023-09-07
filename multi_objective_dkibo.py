@@ -110,12 +110,6 @@ class MultiObjectiveDKIBO(DKIBO):
 
         return self._space.array_to_params(suggestion)
 
-    def multiple_acquisition(self, kind):
-        F = [None] * len(self.ml_regressor)
-        for i in range(self.obj_num):
-
-
-
     def acq_max(self, kind,
                 kappa=2.576,
                 kappa_decay=1,
@@ -156,5 +150,9 @@ class MultiObjectiveDKIBO(DKIBO):
                                      acquisitions,
                                      self.pbounds,
                                      MU=n_pts)
+
+        pop = np.asarray(pop)
+        # adding DPPs here
+
 
         return suggestions
