@@ -14,6 +14,7 @@ from sklearn.ensemble import RandomForestRegressor
 import warnings
 from scipy.stats import norm
 import copy
+from dppy.finite_dpps import FiniteDPP
 
 
 class MultiObjectiveTargetSpace(TargetSpace):
@@ -49,6 +50,7 @@ class MultiObjectiveDKIBO(DKIBO):
                  pbounds,
                  random_state=None,
                  verbose=2,
+                 init_points=5,
                  bounds_transformer=None,
                  ml_regressor: list = None,
                  use_noise=False,
@@ -56,11 +58,11 @@ class MultiObjectiveDKIBO(DKIBO):
 
         assert objective_num == len(ml_regressor)
         self._random_state = ensure_rng(random_state)
-        self._space = MultiObjectiveTargetSpace(None, pbounds, random_state)
+        self._space = MultiObjectiveTargetSpace(objective_num, pbounds, random_state)
         self.obj_num = objective_num
 
         self._queue = Queue()
-        kernel_length_scale = np.array([1.0 for _ in range(len(pbounds[0]))])
+        kernel_length_scale = np.array([1.0 for _ in range(len(pbounds))])
         if use_noise:
             kernel = Matern(nu=2.5, length_scale=kernel_length_scale) + WhiteKernel()
         else:
@@ -80,6 +82,8 @@ class MultiObjectiveDKIBO(DKIBO):
             self._bounds_transformer.initialize(self._space)
 
         self.ml_regressor = ml_regressor
+        self.x_init = None
+        self.init_points = init_points
 
         # recording
         self.result_dataframe = []
@@ -89,8 +93,24 @@ class MultiObjectiveDKIBO(DKIBO):
 
         super(BayesianOptimization, self).__init__(events=DEFAULT_EVENTS)
 
-    def suggest(self, kind, constraints=None, n_iter=15):
+    def _prime_queue(self, init_points=None):
+        init_points = self.init_points if init_points is None else init_points
+        if self._queue.empty and self._space.empty:
+            init_points = max(init_points, 1)
+
+        for _ in range(init_points):
+            self._queue.add(self._space.random_sample())
+
+        self.x_init = copy.deepcopy(self._queue._queue)
+
+    def suggest(self, kind, batch_size=1, constraints=None, n_iter=15, max_iter=10):
         """Most promissing point to probe next"""
+        # 每次调用，max_iter数值应当减少，直到减少到2
+
+        if self.x_init is None:
+            self.x_init = []
+            for i in range(self.init_points):
+                self.x_init.append(self._space.random_sample())
 
         if len(self._space) == 0:
             return self._space.array_to_params(self._space.random_sample())
@@ -105,19 +125,24 @@ class MultiObjectiveDKIBO(DKIBO):
         suggestion = self.acq_max(
             kind=kind,
             constraints=constraints,
-            n_iter=n_iter
+            n_iter=n_iter,
+            max_iter=max_iter,
+            batch_size=batch_size
         )
 
         return self._space.array_to_params(suggestion)
 
+    # todo: add early stop
     def acq_max(self, kind,
                 kappa=2.576,
                 kappa_decay=1,
                 kappa_decay_delay=0,
                 xi=0.0,
-                manual_early_stop=None,
                 n_pts=100,
-                n_warmup=10000, n_iter=10, constraints=None):
+                constraints=None,
+                max_iter=100,
+                early_stop=False,
+                batch_size=1):
 
         bounds = self._space.bounds
         y_max = self._space.target.max()
@@ -125,18 +150,19 @@ class MultiObjectiveDKIBO(DKIBO):
         # acquisition functions
         utilities = []
         for i in range(self.obj_num):
-            utilities.append(
-                UtilityFunction(
+            util = UtilityFunction(
                     kind=kind,
                     kappa=kappa,
                     kappa_decay=kappa_decay,
                     kappa_decay_delay=kappa_decay_delay,
                     xi=xi,
-                    x_init=self.x_init,  # todo: adding self.x_init
-                    max_iter=self.max_iter,  # todo: adding self.max_iter
+                    x_init=self.x_init,
+                    max_iter=max_iter,
                     ml_regressor=self.ml_regressor[i]
                 )
-            )
+            if early_stop:
+                util.update_params(early_stop=True)
+            utilities.append(util)
 
         def acquisitions(x):
             F = [None] * self.obj_num
@@ -153,6 +179,9 @@ class MultiObjectiveDKIBO(DKIBO):
 
         pop = np.asarray(pop)
         # adding DPPs here
+        # todo: 计算kernel矩阵，用它作为DPP矩阵
 
+        dpp = FiniteDPP('correlation', **{'K': kernel_matrix})
+        suggestions = dpp.sample_exact_k_dpp(batch_size)
 
-        return suggestions
+        return pop[suggestions]
