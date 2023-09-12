@@ -177,9 +177,11 @@ class MultiObjectiveDKIBO(DKIBO):
                                      self.pbounds,
                                      MU=n_pts)
 
-        pop = np.asarray(pop)
+        pop = np.asarray(pop)  # shape: (n_pts, len(pbounds))
         # adding DPPs here
-        # todo: 计算kernel矩阵，用它作为DPP矩阵
+
+        kernel_matrix = [gp.kernel_(pop) for gp in self._gp_list]
+        kernel_matrix = np.mean(kernel_matrix, axis=0)
 
         dpp = FiniteDPP('correlation', **{'K': kernel_matrix})
         suggestions = dpp.sample_exact_k_dpp(batch_size)
