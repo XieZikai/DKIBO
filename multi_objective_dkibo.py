@@ -103,7 +103,7 @@ class MultiObjectiveDKIBO(DKIBO):
 
         self.x_init = copy.deepcopy(self._queue._queue)
 
-    def suggest(self, kind, batch_size=1, constraints=None, n_iter=15, max_iter=10):
+    def suggest(self, kind, batch_size=1, constraints=None, max_iter=10):
         """Most promissing point to probe next"""
         # 每次调用，max_iter数值应当减少，直到减少到2
 
@@ -125,14 +125,14 @@ class MultiObjectiveDKIBO(DKIBO):
         suggestion = self.acq_max(
             kind=kind,
             constraints=constraints,
-            n_iter=n_iter,
             max_iter=max_iter,
             batch_size=batch_size
         )
 
         return self._space.array_to_params(suggestion)
 
-    # todo: add early stop
+    # todo: add constraint
+    # http://deap.gel.ulaval.ca/doc/dev/tutorials/advanced/constraints.html
     def acq_max(self, kind,
                 kappa=2.576,
                 kappa_decay=1,
