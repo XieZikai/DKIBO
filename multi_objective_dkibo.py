@@ -58,7 +58,6 @@ class MultiObjectiveDKIBO(DKIBO):
 
         assert objective_num == len(ml_regressor)
         self._random_state = ensure_rng(random_state)
-        self._space = MultiObjectiveTargetSpace(objective_num, pbounds, random_state)
         self.obj_num = objective_num
 
         self._queue = Queue()
@@ -90,8 +89,11 @@ class MultiObjectiveDKIBO(DKIBO):
         self.x_dataframe = []
         self.early_stop_threshold = early_stop_threshold
         self.proportion_dataframe = []
+        self.pbounds = np.array(list(pbounds.values()))
 
         super(BayesianOptimization, self).__init__(events=DEFAULT_EVENTS)
+
+        self._space = MultiObjectiveTargetSpace(objective_num, pbounds, random_state)
 
     def _prime_queue(self, init_points=None):
         init_points = self.init_points if init_points is None else init_points
@@ -104,6 +106,34 @@ class MultiObjectiveDKIBO(DKIBO):
         self.x_init = copy.deepcopy(self._queue._queue)
 
     def suggest(self, kind, batch_size=1, constraints=None, max_iter=10):
+        """Most promissing point to probe next"""
+        # 每次调用，max_iter数值应当减少，直到减少到2
+
+        if self.x_init is None:
+            self.x_init = []
+            for i in range(self.init_points):
+                self.x_init.append(self._space.random_sample())
+
+        if len(self._space) == 0:
+            return self._space.array_to_params(self._space.random_sample())
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            for i in range(self.obj_num):
+                self._gp_list[i].fit(self._space.params, self._space.target[:, i])
+                if self.ml_regressor[i] is not None:
+                    self.ml_regressor[i].fit(self._space.params, self._space.target)
+
+        suggestions = self.acq_max(
+            kind=kind,
+            constraints=constraints,
+            max_iter=max_iter,
+            batch_size=batch_size
+        )
+
+        return [self._space.array_to_params(suggestion) for suggestion in suggestions]
+
+    def suggest_test(self, kind, batch_size=1, constraints=None, max_iter=10):
         """Most promissing point to probe next"""
         # 每次调用，max_iter数值应当减少，直到减少到2
 
@@ -144,8 +174,8 @@ class MultiObjectiveDKIBO(DKIBO):
                 early_stop=False,
                 batch_size=1):
 
-        bounds = self._space.bounds
-        y_max = self._space.target.max()
+        # bounds = self._space.bounds
+        y_max = self._space.max()
 
         # acquisition functions
         utilities = []
@@ -165,12 +195,10 @@ class MultiObjectiveDKIBO(DKIBO):
             utilities.append(util)
 
         def acquisitions(x):
-            F = [None] * self.obj_num
-            for i in range(self.obj_num):
-                F[i] = utilities[i].utility(x, self._gp_list[i], y_max[i])
-            return F
-
-        acquisitions = acquisitions(utilities)
+            x_array = np.array(x.tolist())
+            x_array = x_array.reshape(1, -1)
+            result = [utilities[i].utility(x_array, self._gp_list[i], y_max[i])[0] for i in range(self.obj_num)]
+            return result
 
         pop, logbook, front = NSGAII(self.obj_num,
                                      acquisitions,
@@ -179,10 +207,10 @@ class MultiObjectiveDKIBO(DKIBO):
 
         pop = np.asarray(pop)  # shape: (n_pts, len(pbounds))
         # adding DPPs here
-
         kernel_matrix = [gp.kernel_(pop) for gp in self._gp_list]
         kernel_matrix = np.mean(kernel_matrix, axis=0)
 
+        # comment DPP isin_01 before using it
         dpp = FiniteDPP('correlation', **{'K': kernel_matrix})
         suggestions = dpp.sample_exact_k_dpp(batch_size)
 
