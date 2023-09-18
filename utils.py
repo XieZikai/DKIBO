@@ -7,7 +7,6 @@ import array
 
 
 def round_result(x, constraint=None):
-
     dict_keys = list(x.keys())
     dict_array = np.array(list(x.values()))
     dict_array_rounded = dict_array.round()
@@ -45,14 +44,44 @@ def uniform(bounds):
     return [random.uniform(b[0], b[1]) for b in bounds]
 
 
-def NSGAII(NObj, objective, pbounds, seed=None, NGEN=100, MU=100, CXPB=0.9):
+def all_elements_equal(lst, value):
+    for element in lst:
+        if element != value:
+            return False
+    return True
+
+
+def NSGAII(objective, pbounds, target, constraint, seed=None, NGEN=100, MU=100, CXPB=0.9, max_delta=100000.0):
     random.seed(seed)
+    weight_set = []
+    for i in target:
+        if i == 'max':
+            weight_set.append(1.0)
+        elif i == 'min':
+            weight_set.append(-1.0)
+        else:
+            raise Exception('Optimization target needs to be either max or min')
+    weight_set = tuple(weight_set)
+
+    def feasible(x):
+        if constraint(x) >= 0:
+            return True
+        return False
 
     global FirstCall
     if FirstCall:
-        creator.create("FitnessMin", base.Fitness, weights=(-1.0,)*NObj)
-        creator.create("Individual", array.array, typecode='d',
-                       fitness=creator.FitnessMin)
+        if all_elements_equal(target, 'max'):
+            creator.create("FitnessMax", base.Fitness, weights=weight_set)
+            creator.create("Individual", array.array, typecode='d',
+                           fitness=creator.FitnessMax)
+        elif all_elements_equal(target, 'min'):
+            creator.create("FitnessMin", base.Fitness, weights=weight_set)
+            creator.create("Individual", array.array, typecode='d',
+                           fitness=creator.FitnessMin)
+        else:
+            creator.create("FitnessMulti", base.Fitness, weights=weight_set)
+            creator.create("Individual", array.array, typecode='d',
+                           fitness=creator.FitnessMulti)
         FirstCall = False
     toolbox = base.Toolbox()
 
@@ -69,6 +98,18 @@ def NSGAII(NObj, objective, pbounds, seed=None, NGEN=100, MU=100, CXPB=0.9):
 
     toolbox.register("evaluate", objective)
 
+    if constraint is not None:
+        def distance(x):
+            return [0.0 for _ in range(len(target))]
+        delta = []
+        for i in target:
+            if i == 'max':
+                delta.append(max_delta)
+            else:
+                delta.append(-max_delta)
+
+        toolbox.decorate("evaluate", tools.DeltaPenality(feasible, delta, distance))
+
     toolbox.register("mate",
                      tools.cxSimulatedBinaryBounded,
                      low=pbounds[:, 0].tolist(),
@@ -80,7 +121,7 @@ def NSGAII(NObj, objective, pbounds, seed=None, NGEN=100, MU=100, CXPB=0.9):
                      low=pbounds[:, 0].tolist(),
                      up=pbounds[:, 1].tolist(),
                      eta=20.0,
-                     indpb=1.0/NDIM)
+                     indpb=1.0 / NDIM)
 
     toolbox.register("select", tools.selNSGA2)
 

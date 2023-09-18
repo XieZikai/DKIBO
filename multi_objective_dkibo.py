@@ -1,20 +1,19 @@
+from typing import List
+
 from dkibo import DKIBO, UtilityFunction
-from deap import base
 from bayes_opt.bayesian_optimization import BayesianOptimization, Queue, TargetSpace
-from bayes_opt.util import ensure_rng, acq_max
+from bayes_opt.util import ensure_rng
 from bayes_opt.event import DEFAULT_EVENTS
 from utils import NSGAII
 
 from sklearn.gaussian_process import GaussianProcessRegressor
 import numpy as np
 from sklearn.gaussian_process.kernels import Matern, WhiteKernel
-from bayes_opt.event import Events
-from sklearn.ensemble import RandomForestRegressor
 
 import warnings
-from scipy.stats import norm
 import copy
 from dppy.finite_dpps import FiniteDPP
+import pandas as pd
 
 
 class MultiObjectiveTargetSpace(TargetSpace):
@@ -46,19 +45,26 @@ class MultiObjectiveDKIBO(DKIBO):
     name = 'MODKIBO'
 
     def __init__(self,
-                 objective_num: int,
+                 objective_target: List[str],
                  pbounds,
                  random_state=None,
                  verbose=2,
                  init_points=5,
                  bounds_transformer=None,
-                 ml_regressor: list = None,
+                 ml_regressor: List = None,
                  use_noise=False,
-                 early_stop_threshold=0.05):
-
-        assert objective_num == len(ml_regressor)
+                 early_stop_threshold=0.05,
+                 constraint=None):
+        """
+        :params:
+        objective_target: A list of optimization directions, for example ['max', 'min', 'max']
+        constraint: Callable function of input vector. Only accept inequality constraints that the result smaller than 0.
+        """
+        assert len(ml_regressor) == len(objective_target)
         self._random_state = ensure_rng(random_state)
-        self.obj_num = objective_num
+        self.obj_num = len(objective_target)
+        self.constraint = constraint
+        self.obj_target = objective_target
 
         self._queue = Queue()
         kernel_length_scale = np.array([1.0 for _ in range(len(pbounds))])
@@ -73,7 +79,7 @@ class MultiObjectiveDKIBO(DKIBO):
             normalize_y=True,
             n_restarts_optimizer=5,
             random_state=self._random_state,
-        ) for _ in range(objective_num)]
+        ) for _ in range(self.obj_num)]
 
         self._verbose = verbose
         self._bounds_transformer = bounds_transformer
@@ -93,7 +99,7 @@ class MultiObjectiveDKIBO(DKIBO):
 
         super(BayesianOptimization, self).__init__(events=DEFAULT_EVENTS)
 
-        self._space = MultiObjectiveTargetSpace(objective_num, pbounds, random_state)
+        self._space = MultiObjectiveTargetSpace(self.obj_num, pbounds, random_state)
 
     def _prime_queue(self, init_points=None):
         init_points = self.init_points if init_points is None else init_points
@@ -105,7 +111,8 @@ class MultiObjectiveDKIBO(DKIBO):
 
         self.x_init = copy.deepcopy(self._queue._queue)
 
-    def suggest(self, kind, batch_size=1, constraints=None, max_iter=10):
+    def suggest(self, kind, batch_size=1, max_iter=10,
+                save_df=False, load_df=False, delta=1e-4):
         """Most promissing point to probe next"""
         # 每次调用，max_iter数值应当减少，直到减少到2
 
@@ -126,14 +133,30 @@ class MultiObjectiveDKIBO(DKIBO):
 
         suggestions = self.acq_max(
             kind=kind,
-            constraints=constraints,
             max_iter=max_iter,
             batch_size=batch_size
         )
+        results = [self._space.array_to_params(suggestion) for suggestion in suggestions]
 
-        return [self._space.array_to_params(suggestion) for suggestion in suggestions]
+        if load_df:
+            previous_df = pd.read_csv('previous_batch.csv')
+            df = pd.DataFrame(results)
+            if ((df - previous_df) ** 2).values.sum() < df.values.sum() * delta:
+                suggestions = self.acq_max(
+                    kind=kind,
+                    max_iter=max_iter,
+                    batch_size=batch_size,
+                    early_stop=True
+                )
+                results = [self._space.array_to_params(suggestion) for suggestion in suggestions]
 
-    def suggest_test(self, kind, batch_size=1, constraints=None, max_iter=10):
+        if save_df:
+            df = pd.DataFrame(results)
+            df.to_csv('previous_batch.csv')
+
+        return results
+
+    def suggest_test(self, kind, batch_size=1, max_iter=10):
         """Most promissing point to probe next"""
         # 每次调用，max_iter数值应当减少，直到减少到2
 
@@ -154,22 +177,18 @@ class MultiObjectiveDKIBO(DKIBO):
 
         suggestion = self.acq_max(
             kind=kind,
-            constraints=constraints,
             max_iter=max_iter,
             batch_size=batch_size
         )
 
         return self._space.array_to_params(suggestion)
 
-    # todo: add constraint
-    # http://deap.gel.ulaval.ca/doc/dev/tutorials/advanced/constraints.html
     def acq_max(self, kind,
                 kappa=2.576,
                 kappa_decay=1,
                 kappa_decay_delay=0,
                 xi=0.0,
                 n_pts=100,
-                constraints=None,
                 max_iter=100,
                 early_stop=False,
                 batch_size=1):
@@ -200,10 +219,11 @@ class MultiObjectiveDKIBO(DKIBO):
             result = [utilities[i].utility(x_array, self._gp_list[i], y_max[i])[0] for i in range(self.obj_num)]
             return result
 
-        pop, logbook, front = NSGAII(self.obj_num,
-                                     acquisitions,
+        pop, logbook, front = NSGAII(acquisitions,
                                      self.pbounds,
-                                     MU=n_pts)
+                                     MU=n_pts,
+                                     constraint=self.constraint,
+                                     target=self.obj_target)
 
         pop = np.asarray(pop)  # shape: (n_pts, len(pbounds))
         # adding DPPs here
