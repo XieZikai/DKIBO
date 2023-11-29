@@ -8,6 +8,7 @@ from mobopt._NSGA2 import NSGAII
 import numpy as np
 import warnings
 from scipy.stats import norm
+from utils import round_result
 
 from warnings import warn
 import matplotlib.pyplot as pl
@@ -15,7 +16,9 @@ from sklearn.gaussian_process.kernels import Matern
 from scipy.spatial.distance import cdist
 
 
-def sample_maximal_distance_points(points, n, initial_point_index):
+def sample_maximal_distance_points(points, n, initial_point_index, redundant_sampling=10):
+    # using redundant sampling to avoid duplicate probe point error
+
     # 计算距离矩阵
     distance_matrix = cdist(points, points, metric='euclidean')
 
@@ -23,7 +26,7 @@ def sample_maximal_distance_points(points, n, initial_point_index):
     selected_points = [initial_point_index]
 
     # 迭代选择下一个点
-    while len(selected_points) < n:
+    while len(selected_points) < n + redundant_sampling:
         # 计算当前已选择点与剩余点之间的最小距离
         min_distances = np.min(distance_matrix[selected_points], axis=0)
 

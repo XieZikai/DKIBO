@@ -61,7 +61,7 @@ def experiment():
     rf_vmax = NNWrapper(ml_model)
 
     metals = pd.read_excel("./get_model/POD_exp.xlsx", sheet_name="metals")
-    metals = metals.to_numpy()[100:]
+    metals = metals.to_numpy()[100:] * 100
 
     # minimize Km value
     km_train_y = pd.read_excel("./get_model/POD_exp.xlsx", sheet_name="km")
@@ -97,16 +97,16 @@ def experiment():
     constraint = [
         {
             'type': 'ineq',
-            'fun': lambda x: x[0] + x[1] + x[2] + x[3] - 0.65
+            'fun': lambda x: x[0] + x[1] + x[2] + x[3] - 65
         },
         {
             'type': 'ineq',
-            'fun': lambda x: 0.95 - (x[0] + x[1] + x[2] + x[3])
+            'fun': lambda x: 95 - (x[0] + x[1] + x[2] + x[3])
         },
     ]
 
     optimizer = NoTargetMOBayesianOpt(target=None, NObj=2,
-                                      pbounds=np.array([[0.05, 0.35], [0.05, 0.35], [0.05, 0.35], [0.05, 0.35]]),
+                                      pbounds=np.array([[5, 35], [5, 35], [5, 35], [5, 35]]),
                                       constraints=constraint, ml_regressor=[rf_km, rf_vmax])
     init_x = metals[:, :4]
     init_y = np.concatenate((km_train_y, vmax_train_y), axis=1)
@@ -114,15 +114,23 @@ def experiment():
 
     results = optimizer.maximize_step(n_sample=8)
 
+    return_sample = 0
     for result in results:
-        result = np.append(result, 1 - np.sum(result))
+        result = np.append(result, 100 - np.sum(result))
 
         round_constraint = {
             'type': 'eq',
             'fun': lambda x: np.sum(x) - 100
         }
-        result = round_result(np.array(result) * 100, round_constraint)
-        print(result)
+        result = round_result(np.array(result), round_constraint)
+
+        if result[:4].tolist() in optimizer.space.X.tolist():
+            print('Redundant point, skipping')
+        else:
+            print(result)
+            return_sample += 1
+        if return_sample == 8:
+            break
 
 
 if __name__ == "__main__":
