@@ -324,7 +324,8 @@ class NoTargetMOBayesianOpt(MOBayesianOpt):
                       SaveInterval=10,
                       FrontSampling=[10, 25, 50, 100],
                       i_iter=1,
-                      n_sample=1):
+                      n_sample=1,
+                      regularization=None):
         # If initialize was not called, call it and allocate necessary space
         if not self.__CalledInit:
             raise RuntimeError("Initialize was not called, "
@@ -376,7 +377,12 @@ class NoTargetMOBayesianOpt(MOBayesianOpt):
         IndexPop, FatorPop = self.__LargestOfLeast(Population,
                                                    self.space.x)
 
-        Fator = self.q * FatorF + (1 - self.q) * FatorPop
+        if regularization is None:
+            FatorR = 0
+        else:
+            FatorR = regularization(Population)
+
+        Fator = self.q * FatorF + (1 - self.q) * FatorPop + FatorR
 
         Index_try = np.argmax(Fator)
 

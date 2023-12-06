@@ -4,13 +4,29 @@ import numpy as np
 from utils import round_result
 
 from mobopt_ import NoTargetMOBayesianOpt
-from get_model.get_pretrain_model import Model
 import torch
-from torch.nn import Module
+from torch import nn
+from torch.nn import Module, functional as F
 import pandas as pd
-from sklearn.gaussian_process import GaussianProcessRegressor
 from sklearn.ensemble import RandomForestRegressor
 from scipy.spatial.distance import cdist
+
+
+class Model(Module):
+    def __init__(self):
+        super(Model, self).__init__()
+        self.Layer1 = nn.Linear(in_features=5, out_features=512)
+        self.Layer2 = nn.Linear(in_features=512, out_features=384)
+        self.Layer3 = nn.Linear(in_features=384, out_features=192)
+        self.Layer4 = nn.Linear(in_features=192, out_features=5)
+
+    def forward(self, x):
+        x = F.relu(self.Layer1(x))
+        x = F.relu(self.Layer2(x))
+        x = F.relu(self.Layer3(x))
+        x = self.Layer4(x)
+
+        return x
 
 
 class NNWrapper:
@@ -112,7 +128,8 @@ def experiment():
     init_y = np.concatenate((km_train_y, vmax_train_y), axis=1)
     optimizer.initialize(Points=init_x, Y=init_y)
 
-    results = optimizer.maximize_step(n_sample=8)
+    regularization = lambda x: -0.01 * x[:, 0]
+    results = optimizer.maximize_step(n_sample=50, regularization=regularization)
 
     return_sample = 0
     for result in results:
