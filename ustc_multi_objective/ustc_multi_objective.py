@@ -122,16 +122,19 @@ def experiment():
     ]
 
     optimizer = NoTargetMOBayesianOpt(target=None, NObj=2,
-                                      pbounds=np.array([[5, 35], [5, 35], [5, 35], [5, 35]]),
+                                      pbounds=np.array([[5, 15], [5, 35], [5, 35], [5, 35]]),
                                       constraints=constraint, ml_regressor=[rf_km, rf_vmax])
     init_x = metals[:, :4]
     init_y = np.concatenate((km_train_y, vmax_train_y), axis=1)
     optimizer.initialize(Points=init_x, Y=init_y)
 
-    regularization = lambda x: -0.01 * x[:, 0]
+    regularization = lambda x: - 0.05 * (x[:, 1] + x[:, 2] + x[:, 3])
     results = optimizer.maximize_step(n_sample=50, regularization=regularization)
 
     return_sample = 0
+
+    result_output = []
+
     for result in results:
         result = np.append(result, 100 - np.sum(result))
 
@@ -140,11 +143,15 @@ def experiment():
             'fun': lambda x: np.sum(x) - 100
         }
         result = round_result(np.array(result), round_constraint)
+        found = any(np.array_equal(result, arr) for arr in result_output)
 
         if result[:4].tolist() in optimizer.space.X.tolist():
             print('Redundant point, skipping')
+        elif found:
+            print('Redundant point, skipping')
         else:
             print(result)
+            result_output.append(result)
             return_sample += 1
         if return_sample == 8:
             break
