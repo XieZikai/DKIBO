@@ -9,6 +9,7 @@ from torch import nn
 from torch.nn import Module, functional as F
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.linear_model import LinearRegression
 from scipy.spatial.distance import cdist
 
 
@@ -70,6 +71,41 @@ def get_bad_points(data, n_sample):
     return farthest_indices
 
 
+class MLRegressorWrapper:
+    """Wrap a list of models into one model."""
+    def __init__(self, models: list, weights: list):
+        self.models = models
+        self.weights = weights
+
+    def predict(self, x):
+        result = None
+        for model, weight in zip(self.models, self.weights):
+            if result is None:
+                a = model.predict(x)
+                result = a * weight
+            else:
+                a = model.predict(x)
+                result += a * weight
+        return result
+
+
+class LinearModelWrapper:
+    """Wrap a linear model to get sufficient columns as input data."""
+    def __init__(self, column: list):
+        self.column = column
+        self.model = LinearRegression()
+
+    def fit(self, x, y):
+        x_reshape = x.T[self.column].T
+        self.model.fit(x_reshape, y)
+
+    def predict(self, x):
+        x_reshape = x.T[self.column].T
+        if len(x) == 1:
+            return self.model.predict(x_reshape)[0]
+        return self.model.predict(x_reshape)
+
+
 def experiment():
     ml_model = torch.load('./get_model/POD-premodel.pkl')
 
@@ -107,8 +143,43 @@ def experiment():
         km_train_y = np.concatenate((km_train_y, batch_km), axis=0)
         vmax_train_y = np.concatenate((vmax_train_y, batch_vmax), axis=0)
 
+    # Adding this after GPT-4 finding the 2-parameter correlations
     rf_km.fit(metals, km_train_y)
     rf_vmax.fit(metals, vmax_train_y)
+
+    linear_fe_cu_km = LinearModelWrapper([0, 2])
+    linear_fe_cu_vmax = LinearModelWrapper([0, 2])
+    linear_fe_cu_km.fit(metals, km_train_y)
+    linear_fe_cu_vmax.fit(metals, vmax_train_y)
+
+    linear_fe_mn_km = LinearModelWrapper([0, 3])
+    linear_fe_mn_vmax = LinearModelWrapper([0, 3])
+    linear_fe_mn_km.fit(metals, km_train_y)
+    linear_fe_mn_vmax.fit(metals, vmax_train_y)
+
+    linear_co_v_km = LinearModelWrapper([1, 4])
+    linear_co_v_vmax = LinearModelWrapper([1, 4])
+    linear_co_v_km.fit(metals, km_train_y)
+    linear_co_v_vmax.fit(metals, vmax_train_y)
+
+    linear_fe_v_km = LinearModelWrapper([0, 4])
+    linear_fe_v_vmax = LinearModelWrapper([0, 4])
+    linear_fe_v_km.fit(metals, km_train_y)
+    linear_fe_v_vmax.fit(metals, vmax_train_y)
+
+    model_km = MLRegressorWrapper([rf_km,
+                                   linear_fe_cu_km,
+                                   linear_fe_mn_km,
+                                   linear_co_v_km,
+                                   linear_fe_v_km],
+                                  [1, 0.25, 0.25, 0.25, 0.25])
+
+    model_vmax = MLRegressorWrapper([rf_vmax,
+                                     linear_fe_cu_vmax,
+                                     linear_fe_mn_vmax,
+                                     linear_co_v_vmax,
+                                     linear_fe_v_vmax],
+                                    [1, 0.25, 0.25, 0.25, 0.25])
 
     constraint = [
         {
@@ -123,7 +194,7 @@ def experiment():
 
     optimizer = NoTargetMOBayesianOpt(target=None, NObj=2,
                                       pbounds=np.array([[5, 15], [5, 35], [5, 35], [5, 35]]),
-                                      constraints=constraint, ml_regressor=[rf_km, rf_vmax])
+                                      constraints=constraint, ml_regressor=[model_km, model_vmax])
     init_x = metals[:, :4]
     init_y = np.concatenate((km_train_y, vmax_train_y), axis=1)
     optimizer.initialize(Points=init_x, Y=init_y)
@@ -157,5 +228,25 @@ def experiment():
             break
 
 
+def experiment_standard_BO():
+    km_train = pd.read_excel("./get_model/POD_exp.xlsx", sheet_name="km")
+    km_train_y = km_train.to_numpy()
+    km_train_y = (-km_train_y)
+
+    # maximize Vmax value
+    vmax_train = pd.read_excel("./get_model/POD_exp.xlsx", sheet_name="Vmax")
+    vmax_train_y = vmax_train.to_numpy()
+
+    x = pd.read_excel("./get_model/POD_exp.xlsx", sheet_name="metals")
+
+    data = np.concatenate((km_train_y, vmax_train_y), axis=1)
+    indices = get_bad_points(data, 50)
+
+    x.iloc[indices].to_csv('x.csv')
+    km_train.iloc[indices].to_csv('km_train.csv')
+    vmax_train.iloc[indices].to_csv('vmax_train.csv')
+
+
 if __name__ == "__main__":
     experiment()
+
