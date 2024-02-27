@@ -51,8 +51,39 @@ def acq_max(ac, gp, y_max, bounds, random_state, n_warmup=10000, n_iter=10, cons
     max_acq = ys.max()
 
     # Explore the parameter space more throughly
-    x_seeds = random_state.uniform(bounds[:, 0], bounds[:, 1],
-                                   size=(n_iter, bounds.shape[0]))
+    if constraints is None:
+        x_seeds = random_state.uniform(bounds[:, 0], bounds[:, 1],
+                                       size=(n_iter, bounds.shape[0]))
+    # Make sure that generated starting seeds satisfy constraints
+    else:
+        x_seeds = []
+        while len(x_seeds) < n_iter:
+            x_seed = random_state.uniform(bounds[:, 0], bounds[:, 1],
+                                          size=(1, bounds.shape[0]))[0]
+            flag = False
+
+            for constraint in constraints:
+                if constraint['type'] == 'eq':
+                    y1 = constraint['fun'](x_seed)
+                    y2 = constraint['fun'](x_seed * 2)
+                    multiplier = (y2 - 2 * y1) / (y2 - y1)
+                    x_seed = multiplier * x_seed
+                    for i, x in enumerate(x_seed):
+                        if x < bounds[i, 0]:
+                            flag = True
+                        if x > bounds[i, 1]:
+                            flag = True
+
+            for constraint in constraints:
+                if constraint['type'] == 'ineq':
+                    if constraint['fun'](x_seed) < 0:
+                        flag = True
+                        break
+
+            if flag is True:
+                continue
+            x_seeds.append(x_seed)
+
     for x_try in x_seeds:
         # Find the minimum of minus the acquisition function
 
