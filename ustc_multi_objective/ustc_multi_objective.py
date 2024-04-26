@@ -113,7 +113,7 @@ def experiment():
     rf_vmax = NNWrapper(ml_model)
 
     metals = pd.read_excel("./get_model/POD_exp.xlsx", sheet_name="metals")
-    metals = metals.to_numpy()[100:] * 100
+    metals = metals.to_numpy()
 
     # minimize Km value
     km_train_y = pd.read_excel("./get_model/POD_exp.xlsx", sheet_name="km")
@@ -127,8 +127,12 @@ def experiment():
     data = np.concatenate((km_train_y, vmax_train_y), axis=1)
     indices = get_bad_points(data, 50)
 
+    print(indices)
+    exit()
+
     km_train_y = km_train_y[indices]
     vmax_train_y = vmax_train_y[indices]
+    metals = metals[indices] * 100
 
     # register all batch data
     batch_files = [i for i in os.listdir('./') if 'batch_' in i]
@@ -229,24 +233,93 @@ def experiment():
 
 
 def experiment_standard_BO():
-    km_train = pd.read_excel("./get_model/POD_exp.xlsx", sheet_name="km")
-    km_train_y = km_train.to_numpy()
+    metals = pd.read_excel("./get_model/POD_exp.xlsx", sheet_name="metals")
+    metals = metals.to_numpy()
+
+    # minimize Km value
+    km_train_y = pd.read_excel("./get_model/POD_exp.xlsx", sheet_name="km")
+    km_train_y = km_train_y.to_numpy()
     km_train_y = (-km_train_y)
 
     # maximize Vmax value
-    vmax_train = pd.read_excel("./get_model/POD_exp.xlsx", sheet_name="Vmax")
-    vmax_train_y = vmax_train.to_numpy()
-
-    x = pd.read_excel("./get_model/POD_exp.xlsx", sheet_name="metals")
+    vmax_train_y = pd.read_excel("./get_model/POD_exp.xlsx", sheet_name="Vmax")
+    vmax_train_y = vmax_train_y.to_numpy()
 
     data = np.concatenate((km_train_y, vmax_train_y), axis=1)
     indices = get_bad_points(data, 50)
 
-    x.iloc[indices].to_csv('x.csv')
-    km_train.iloc[indices].to_csv('km_train.csv')
-    vmax_train.iloc[indices].to_csv('vmax_train.csv')
+    km_train_y = km_train_y[indices]
+    vmax_train_y = vmax_train_y[indices]
+    metals = metals[indices] * 100
+    # metals = metals[100:] * 100
+
+    # register all batch data
+    start_file = 'MultiBO_BaselineStartingBatch.xlsx'
+    df_start = pd.read_excel(start_file, sheet_name='Sheet1')
+    start_x = df_start[['Fe', 'Co', 'Cu', 'Mn', 'V']].to_numpy()
+    start_km = df_start['KM/mM'].to_numpy().reshape(-1, 1)
+    start_km = (-start_km)
+    start_vmax = df_start['Vmax'].to_numpy().reshape(-1, 1)
+
+    experiment_file = 'Baseline_BO.xlsx'
+    df_experiment = pd.read_excel(experiment_file, sheet_name='Sheet1')
+    batch_x = df_experiment[['Fe', 'Co', 'Cu', 'Mn', 'V']].to_numpy()
+    batch_km = df_experiment['KM/mM'].to_numpy().reshape(-1, 1)
+    batch_km = (-batch_km)
+    batch_vmax = df_experiment['Vmax'].to_numpy().reshape(-1, 1)
+
+    metals = np.concatenate((metals, start_x, batch_x), axis=0)
+    km_train_y = np.concatenate((km_train_y, start_km, batch_km), axis=0)
+    vmax_train_y = np.concatenate((vmax_train_y, start_vmax, batch_vmax), axis=0)
+
+    constraint = [
+        {
+            'type': 'ineq',
+            'fun': lambda x: x[0] + x[1] + x[2] + x[3] - 65
+        },
+        {
+            'type': 'ineq',
+            'fun': lambda x: 95 - (x[0] + x[1] + x[2] + x[3])
+        },
+    ]
+
+    optimizer = NoTargetMOBayesianOpt(target=None, NObj=2,
+                                      pbounds=np.array([[5, 35], [5, 35], [5, 35], [5, 35]]),
+                                      constraints=constraint, ml_regressor=[None, None])
+
+    init_x = metals[:, :4]
+    init_y = np.concatenate((km_train_y, vmax_train_y), axis=1)
+    optimizer.initialize(Points=init_x, Y=init_y)
+
+    results = optimizer.maximize_step(n_sample=20)
+
+    return_sample = 0
+
+    result_output = []
+
+    for result in results:
+        result = np.append(result, 100 - np.sum(result))
+
+        round_constraint = {
+            'type': 'eq',
+            'fun': lambda x: np.sum(x) - 100
+        }
+        result = round_result(np.array(result), round_constraint)
+        found = any(np.array_equal(result, arr) for arr in result_output)
+
+        if result[:4].tolist() in optimizer.space.X.tolist():
+            print('Redundant point, skipping')
+        elif found:
+            print('Redundant point, skipping')
+        else:
+            print(result)
+            result_output.append(result)
+            return_sample += 1
+        if return_sample == 8:
+            break
 
 
 if __name__ == "__main__":
     experiment()
+    # experiment_standard_BO()
 
