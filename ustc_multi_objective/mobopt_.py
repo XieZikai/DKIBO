@@ -12,7 +12,7 @@ from utils import round_result
 
 from warnings import warn
 import matplotlib.pyplot as pl
-from sklearn.gaussian_process.kernels import Matern
+from sklearn.gaussian_process.kernels import Matern, WhiteKernel
 from scipy.spatial.distance import cdist
 
 
@@ -130,7 +130,7 @@ class NoTargetMOBayesianOpt(MOBayesianOpt):
             self.__save_partial = False
 
         if kernel is None:
-            kernel = Matern(nu=1.5)
+            kernel = Matern(nu=1.5) + WhiteKernel()
 
         self.GP = [None] * self.NObj
         self.Y_MAX = np.array([-np.inf] * self.NObj)
